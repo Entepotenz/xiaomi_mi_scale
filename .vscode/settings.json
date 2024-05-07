@@ -1,4 +1,9 @@
 {
+  "editor.formatOnSave": true,
+  "cSpell.language": "en,de,de-DE",
+  "cSpell.enableFiletypes": [
+    "*"
+  ],
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.formatOnSave": true
