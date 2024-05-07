@@ -21,7 +21,7 @@ jobs:
   push_to_registry:
     name: 🚀 Push Docker image to Docker Hub
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    if: github.ref_name == github.event.repository.default_branch && github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
