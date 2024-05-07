@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.9-slim
+FROM docker.io/library/python:3.12-slim
 
 WORKDIR /opt/miscale
 COPY src /opt/miscale
