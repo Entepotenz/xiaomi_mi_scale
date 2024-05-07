@@ -1,9 +1,24 @@
-
 # Reverse engineered from amazfit's app (also known as Mi Fit)
 from body_scales import bodyScales
+
+
 class bodyScore:
 
-    def __init__(self, age, sex, height, weight, bmi, bodyfat, muscle, water, visceral_fat, bone, basal_metabolism, protein):
+    def __init__(
+        self,
+        age,
+        sex,
+        height,
+        weight,
+        bmi,
+        bodyfat,
+        muscle,
+        water,
+        visceral_fat,
+        bone,
+        basal_metabolism,
+        protein,
+    ):
         self.age = age
         self.sex = sex
         self.height = height
@@ -32,7 +47,9 @@ class bodyScore:
         return score
 
     def getMalus(self, data, min_data, max_data, max_malus, min_malus):
-        result = ((data - max_data) / (min_data - max_data)) * float(max_malus - min_malus)
+        result = ((data - max_data) / (min_data - max_data)) * float(
+            max_malus - min_malus
+        )
         if result >= 0.0:
             return result
         return 0.0
@@ -66,7 +83,10 @@ class bodyScore:
             return self.getMalus(self.bmi, 15.0, 18.5, 15, 5) + 5.0
 
         # Normal or high bmi but too much bodyfat
-        elif ((self.bmi >= bmi_low and self.age < 18) or (self.bmi >= bmi_normal and self.age >= 18)) and self.bodyfat >= fat_scale[2]:
+        elif (
+            (self.bmi >= bmi_low and self.age < 18)
+            or (self.bmi >= bmi_normal and self.age >= 18)
+        ) and self.bodyfat >= fat_scale[2]:
             # Obese
             if self.bmi >= bmi_obese:
                 return 10.0
@@ -79,9 +99,9 @@ class bodyScore:
     def getBodyFatDeductScore(self):
         scale = self.scales.getFatPercentageScale()
 
-        if self.sex == 'male':
+        if self.sex == "male":
             best = scale[2] - 3.0
-        elif self.sex == 'female':
+        elif self.sex == "female":
             best = scale[2] - 2.0
 
         # Slighly low in fat or low part or normal fat
@@ -101,7 +121,6 @@ class bodyScore:
             # Very low in fat
             elif self.bodyfat < scale[0]:
                 return self.getMalus(self.bodyfat, 1.0, scale[0], 3, 10) + 3.0
-
 
     def getMuscleDeductScore(self):
         scale = self.scales.getMuscleMassScale()
@@ -162,8 +181,9 @@ class bodyScore:
             return 6.0
         else:
             # It's really + 5.0 in the app, but it's probably a mistake, should be 3.0
-            return self.getMalus(self.basal_metabolism, normal - 300, normal, 6, 3) + 5.0
-
+            return (
+                self.getMalus(self.basal_metabolism, normal - 300, normal, 6, 3) + 5.0
+            )
 
     # Get protein percentage malus
     def getProteinDeductScore(self):
