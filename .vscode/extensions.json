@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "EditorConfig.EditorConfig",
+    "esbenp.prettier-vscode",
+    "foxundermoon.shell-format",
+    "ms-python.black-formatter",
+    "streetsidesoftware.code-spell-checker-german",
+    "streetsidesoftware.code-spell-checker"
+  ],
+  "unwantedRecommendations": []
+}
