@@ -5,5 +5,4 @@ set -o pipefail
 set -o nounset
 if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 
-
-python3 -u /opt/miscale/Xiaomi_Scale.py
+python3 -u /usr/app/Xiaomi_Scale.py

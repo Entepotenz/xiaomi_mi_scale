@@ -36,24 +36,26 @@ If using Home Assistant (formerly known as hass.io), try instead the [Xiaomi Mi 
 	1. linux/arm32v7
 	1. linux/arm64v8
 1. Open `docker-compose.yml` (see below) and edit the environment to suit your configuration...
-1. Stand up the container - `docker-compose up -d`
+1. Start up the container - `docker-compose up -d`
 
 ### docker-compose:
+
 ```yaml
 version: '3'
 services:
-
   mi-scale:
-    image: lolouk44/xiaomi-mi-scale:latest
-    container_name: mi-scale
-    restart: always
-
-    network_mode: host
-    privileged: true
+    image: docker.io/lolouk44/xiaomi-mi-scale:latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     volumes:
-      - ./data:/data
+      - ./data:/data:ro
       - /var/run/dbus/:/var/run/dbus/:ro #needed for bleak
 ```
+
 ### options.json:
 All the config needs to be in a file named `options.json`. You can get a copy of one with minimum config [here](./options.json)
 

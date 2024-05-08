@@ -1,20 +1,35 @@
-FROM docker.io/library/python:3.9-slim
+FROM docker.io/library/python:3.9.19-slim@sha256:44122e46edb1c3ae2a144778db3e01c78b6de3af20ddcc38d43032decffb00cf as build
 
-WORKDIR /opt/miscale
-COPY src /opt/miscale
+WORKDIR /usr/app
 
-RUN apt-get update && apt-get install --no-install-recommends -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     bluez \
-    python3-pip \
-    libglib2.0-dev && \
-    rm -rf /var/lib/apt/lists/*
+    libglib2.0-dev
 
+RUN python -m venv /usr/app/venv
+ENV PATH="/usr/app/venv/bin:$PATH"
+
+COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Copy in docker scripts to root of container...
-COPY dockerscripts/ /
+FROM docker.io/library/python:3.9.19-slim@sha256:44122e46edb1c3ae2a144778db3e01c78b6de3af20ddcc38d43032decffb00cf
 
-RUN chmod +x /entrypoint.sh && chmod +x /cmd.sh
+ENV DEBUG False
+
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    bluez \
+    && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/app/
+COPY --from=build /usr/app/venv ./venv
+COPY src .
+ENV PATH="/usr/app/venv/bin:$PATH"
+
+COPY dockerscripts/ /
+RUN chmod +x /entrypoint.sh \
+    && chmod +x /cmd.sh
+
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/cmd.sh"]
