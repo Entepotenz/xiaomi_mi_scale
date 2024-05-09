@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import binascii
-from bleak import BleakScanner
-from collections import namedtuple
-from datetime import datetime
 import functools
 import json
-import paho.mqtt.publish as publish
-import subprocess
-import sys
 import logging
 import os
+import subprocess
+import sys
+from collections import namedtuple
+from datetime import datetime
+
+import paho.mqtt.publish as publish
+from bleak import BleakScanner
 
 import Xiaomi_Scale_Body_Metrics
 

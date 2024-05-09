@@ -1,5 +1,6 @@
-from math import floor
 import sys
+from math import floor
+
 from body_scales import bodyScales
 
 
