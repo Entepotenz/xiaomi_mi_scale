@@ -1,0 +1,12 @@
+version: "3"
+services:
+  mi-scale:
+    build: .
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    privileged: true
+    read_only: true
+    volumes:
+      - ./:/data/:ro
+      - /var/run/dbus/:/var/run/dbus/:ro #needed for bleak
