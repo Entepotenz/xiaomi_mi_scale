@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 from collections import namedtuple
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import paho.mqtt.publish as publish
 from bleak import BleakScanner
@@ -144,6 +144,43 @@ def MQTT_publish(weight, unit, mitdatetime, hasImpedance, miimpedance):
     except Exception as error:
         logging.error(f"Could not publish to MQTT: {error}")
         raise
+
+
+def should_ignore_measurement_because_to_close_to_previous_measurement(
+    current_measurement: dict,
+    previous_measurement: dict,
+    max_timedelta: timedelta = timedelta(minutes=5),
+) -> bool:
+    if not previous_measurement:
+        return False
+
+    is_unit_equals = current_measurement["unit"] == previous_measurement["unit"]
+    is_timedelta_exceeded = (
+        previous_measurement["timestamp"] - current_measurement["timestamp"]
+    ) >= max_timedelta
+
+    is_measured_data_delta_significant = False
+    if "impedance" in current_measurement.keys():
+        is_measured_data_delta_significant = (
+            round(current_measurement["weight"], 2)
+            + int(current_measurement["impedance"])
+        ) != (
+            round(previous_measurement["weight"], 2)
+            + int(previous_measurement["impedance"])
+        )
+    else:
+        is_measured_data_delta_significant = round(
+            current_measurement["weight"], 2
+        ) != round(previous_measurement["weight"], 2)
+
+    if not is_unit_equals:
+        return False
+    elif is_timedelta_exceeded:
+        return False
+    elif is_measured_data_delta_significant:
+        return False
+    else:
+        return True
 
 
 os.system("clear")
@@ -391,8 +428,19 @@ async def main(MISCALE_MAC):
                     measured = measured / 2
                 miimpedance = str(int((data[24:26] + data[22:24]), 16))
                 if unit and isStabilized:
-                    if OLD_MEASURE != round(measured, 2) + int(miimpedance):
-                        OLD_MEASURE = round(measured, 2) + int(miimpedance)
+                    current_measure = {
+                        "unit": unit,
+                        "timestamp": datetime.now(),
+                        "impedance": miimpedance,
+                        "weight": measured,
+                    }
+                    if should_ignore_measurement_because_to_close_to_previous_measurement(
+                        current_measure, OLD_MEASURE
+                    ):
+                        logging.debug(
+                            "skipping sending value because it is too close to old measure"
+                        )
+                    else:
                         MQTT_publish(
                             round(measured, 2),
                             unit,
@@ -400,8 +448,10 @@ async def main(MISCALE_MAC):
                             hasImpedance,
                             miimpedance,
                         )
-            except:
-                pass
+                        OLD_MEASURE = current_measure
+
+            except Exception as exception:
+                logging.debug(exception)
             try:
                 ### Xiaomi V1 Scale ###
                 data = binascii.b2a_hex(
@@ -426,8 +476,18 @@ async def main(MISCALE_MAC):
                     unit = "kg"
                     measured = measured / 2
                 if unit:
-                    if OLD_MEASURE != round(measured, 2):
-                        OLD_MEASURE = round(measured, 2)
+                    current_measure = {
+                        "unit": unit,
+                        "timestamp": datetime.now(),
+                        "weight": measured,
+                    }
+                    if should_ignore_measurement_because_to_close_to_previous_measurement(
+                        current_measure, OLD_MEASURE
+                    ):
+                        logging.debug(
+                            "skipping sending value because it is too close to old measure"
+                        )
+                    else:
                         MQTT_publish(
                             round(measured, 2),
                             unit,
@@ -435,9 +495,9 @@ async def main(MISCALE_MAC):
                             "",
                             "",
                         )
-            except:
-                pass
-        pass
+                        OLD_MEASURE = current_measure
+            except Exception as exception:
+                logging.debug(exception)
 
     async with BleakScanner(callback, device=f"{HCI_DEV}") as scanner:
         ...
