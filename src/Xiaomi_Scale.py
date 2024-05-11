@@ -476,11 +476,21 @@ async def main(MISCALE_MAC):
                     unit = "kg"
                     measured = measured / 2
                 if unit:
+                    logging.debug(f"continue: unit detected {unit}")
                     current_measure = {
                         "unit": unit,
                         "timestamp": datetime.now(),
                         "weight": measured,
                     }
+                    logging.debug(
+                        f"current_measure: unit: {current_measure['unit']}, timestamp: {current_measure['timestamp'].isoformat()}, weight: {current_measure['weight']}"
+                    )
+                    if OLD_MEASURE:
+                        logging.debug(
+                            f"OLD_MEASURE: unit: {OLD_MEASURE['unit']}, timestamp: {OLD_MEASURE['timestamp'].isoformat()}, weight: {OLD_MEASURE['weight']}"
+                        )
+                    else:
+                        logging.debug("OLD_MEASURE is None")
                     if should_ignore_measurement_because_to_close_to_previous_measurement(
                         current_measure, OLD_MEASURE
                     ):
@@ -496,6 +506,10 @@ async def main(MISCALE_MAC):
                             "",
                         )
                         OLD_MEASURE = current_measure
+                else:
+                    logging.debug(
+                        f"skipping: no unit detected -> measunit:={measunit}, measured:={measured}"
+                    )
             except Exception as exception:
                 logging.debug(exception)
 
