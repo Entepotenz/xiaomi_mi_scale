@@ -1,0 +1,26 @@
+version: "3"
+services:
+  mi-scale:
+    build: ../
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    privileged: true
+    # cap_add:
+    #   - NET_ADMIN
+    #   - NET_RAW
+    volumes:
+      - ./xiaomi_mi_scale_options.json:/data/options.json:ro
+      - /var/run/dbus/:/var/run/dbus/:ro #needed for bleak
+    networks:
+      mqtt:
+
+  mosquitto:
+    image: docker.io/library/eclipse-mosquitto:2.0.18@sha256:cb3afd02611b0c58b328196ab00de0158322b4c1e014841fb182d2a0ea3a79b9
+    volumes:
+      - "./mosquitto.conf:/mosquitto/config/mosquitto.conf:rw"
+    networks:
+      mqtt:
+
+networks:
+  mqtt:
