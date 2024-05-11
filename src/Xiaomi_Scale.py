@@ -149,7 +149,7 @@ def MQTT_publish(weight, unit, mitdatetime, hasImpedance, miimpedance):
 def should_ignore_measurement_because_to_close_to_previous_measurement(
     current_measurement: dict,
     previous_measurement: dict,
-    max_timedelta: timedelta = timedelta(minutes=5),
+    max_timedelta: timedelta = timedelta(hours=1),
 ) -> bool:
     if not previous_measurement:
         return False
