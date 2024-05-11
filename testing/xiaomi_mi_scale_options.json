@@ -1,0 +1,26 @@
+{
+  "options": {
+    "MISCALE_MAC": "00:00:00:00:00:00",
+    "MQTT_HOST": "mosquitto",
+    "MQTT_DISCOVERY": true,
+    "DEBUG_LEVEL": "DEBUG",
+    "USERS": [
+      {
+        "GT": 60,
+        "LT": 90,
+        "SEX": "male",
+        "NAME": "Jo",
+        "HEIGHT": 180,
+        "DOB": "1980-01-01"
+      },
+      {
+        "GT": 40,
+        "LT": 60,
+        "SEX": "female",
+        "NAME": "Mary",
+        "HEIGHT": 160,
+        "DOB": "1990-01-01"
+      }
+    ]
+  }
+}
