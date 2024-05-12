@@ -472,7 +472,7 @@ async def main(MISCALE_MAC):
                     unit = "lbs"
                 if measunit.startswith(("12", "b2")):
                     unit = "jin"
-                if measunit.startswith(("22", "a2")):
+                if measunit.startswith(("22", "a2", "02")):
                     unit = "kg"
                     measured = measured / 2
                 if unit:
