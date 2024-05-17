@@ -3,7 +3,7 @@
     "extends": [
         "config:best-practices",
         "helpers:pinGitHubActionDigests",
-        "regexManagers:dockerfileVersions",
+        "customManagers:dockerfileVersions",
         "security:openssf-scorecard"
     ],
     "enabledManagers": [
