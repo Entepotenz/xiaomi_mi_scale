@@ -17,10 +17,10 @@ FROM docker.io/library/python:3.9.19-slim@sha256:44122e46edb1c3ae2a144778db3e01c
 
 ENV DEBUG False
 
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    bluez \
-    && \
-    rm -rf /var/lib/apt/lists/*
+# RUN apt-get update && apt-get install --no-install-recommends -y \
+#     bluez \
+#     && \
+#     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/app/
 COPY --from=build /usr/app/venv ./venv
