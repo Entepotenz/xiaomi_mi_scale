@@ -19,8 +19,8 @@
     "customManagers": [
         {
             "customType": "regex",
-            "fileMatch": [
-                "run-.+.sh"
+            "managerFilePatterns": [
+                "/run-.+.sh/"
             ],
             "matchStrings": [
                 "DOCKER_IMAGE=\"(?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>sha256:[a-f0-9]+)\""
