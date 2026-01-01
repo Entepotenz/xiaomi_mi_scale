@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.9.19-slim@sha256:44122e46edb1c3ae2a144778db3e01c78b6de3af20ddcc38d43032decffb00cf as build
+FROM docker.io/library/python:3.14.2-slim@sha256:f7864aa85847985ba72d2dcbcbafd7475354c848e1abbdf84f523a100800ae0b as build
 
 WORKDIR /usr/app
 
@@ -13,7 +13,7 @@ ENV PATH="/usr/app/venv/bin:$PATH"
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-FROM docker.io/library/python:3.9.19-slim@sha256:44122e46edb1c3ae2a144778db3e01c78b6de3af20ddcc38d43032decffb00cf
+FROM docker.io/library/python:3.14.2-slim@sha256:f7864aa85847985ba72d2dcbcbafd7475354c848e1abbdf84f523a100800ae0b
 
 ENV DEBUG False
 
