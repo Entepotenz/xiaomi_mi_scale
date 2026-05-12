@@ -1,21 +1,19 @@
 {
-    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-    "extends": [
-        "config:best-practices",
-        "helpers:pinGitHubActionDigests",
-        "customManagers:dockerfileVersions",
-        "security:openssf-scorecard"
-    ],
-    "customManagers": [
-        {
-            "customType": "regex",
-            "managerFilePatterns": [
-                "/run-.+.sh/"
-            ],
-            "matchStrings": [
-                "DOCKER_IMAGE=\"(?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>sha256:[a-f0-9]+)\""
-            ],
-            "datasourceTemplate": "docker"
-        }
-    ]
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>Entepotenz/renovate_custom_presets//default.json",
+    "github>Entepotenz/renovate_custom_presets//group-linters.json",
+    "github>Entepotenz/renovate_custom_presets//group-github-actions.json",
+    "github>Entepotenz/renovate_custom_presets//group-python-testing-and-linting-packages.json"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/run-.+.sh/"],
+      "matchStrings": [
+        "DOCKER_IMAGE=\"(?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>sha256:[a-f0-9]+)\""
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ]
 }
