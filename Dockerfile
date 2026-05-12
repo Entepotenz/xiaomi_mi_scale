@@ -22,9 +22,4 @@ COPY --from=build /usr/app/venv ./venv
 COPY src .
 ENV PATH="/usr/app/venv/bin:$PATH"
 
-COPY dockerscripts/ /
-RUN chmod +x /entrypoint.sh \
-    && chmod +x /cmd.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["/cmd.sh"]
+ENTRYPOINT ["python3", "-u", "/usr/app/Xiaomi_Scale.py"]
