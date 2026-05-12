@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.9.19-slim@sha256:44122e46edb1c3ae2a144778db3e01c78b6de3af20ddcc38d43032decffb00cf AS builder
+FROM docker.io/library/python:3.9.19-slim@sha256:69e712dbe4c4a166527cbf69374533125cfb6ee93a5e39031a0191c741d386d7 AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry install \
     --without dev --no-root
 
-FROM docker.io/library/python:3.9.19-slim@sha256:44122e46edb1c3ae2a144778db3e01c78b6de3af20ddcc38d43032decffb00cf
+FROM docker.io/library/python:3.9.19-slim@sha256:69e712dbe4c4a166527cbf69374533125cfb6ee93a5e39031a0191c741d386d7
 
 WORKDIR /app
 
