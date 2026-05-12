@@ -5,15 +5,5 @@
     "github>Entepotenz/renovate_custom_presets//group-linters.json",
     "github>Entepotenz/renovate_custom_presets//group-github-actions.json",
     "github>Entepotenz/renovate_custom_presets//group-python-testing-and-linting-packages.json"
-  ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "managerFilePatterns": ["/run-.+.sh/"],
-      "matchStrings": [
-        "DOCKER_IMAGE=\"(?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>sha256:[a-f0-9]+)\""
-      ],
-      "datasourceTemplate": "docker"
-    }
   ]
 }
