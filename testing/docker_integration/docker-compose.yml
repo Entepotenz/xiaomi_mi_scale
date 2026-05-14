@@ -5,10 +5,10 @@ services:
     security_opt:
       - no-new-privileges:true
     read_only: true
-    privileged: true
-    # cap_add:
-    #   - NET_ADMIN
-    #   - NET_RAW
+    # privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     volumes:
       - ./xiaomi_mi_scale_options.json:/data/options.json:ro
       - /var/run/dbus/:/var/run/dbus/:ro #needed for bleak
