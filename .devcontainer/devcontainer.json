@@ -11,8 +11,6 @@
   // "features": {},
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],
-  // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "poetry install --no-root",
   // Configure tool-specific properties.
   "customizations": {
     "vscode": {
@@ -79,5 +77,6 @@
   ],
   "runArgs": [
     "--privileged"
-  ]
+  ],
+  "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
 }
