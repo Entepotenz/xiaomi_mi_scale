@@ -1,7 +1,12 @@
-import sys
 from math import floor
 
 from body_scales import bodyScales
+
+
+class MeasurementError(ValueError):
+    """Raised when body metric inputs are out of valid range."""
+
+    pass
 
 
 class bodyMetrics:
@@ -11,25 +16,22 @@ class bodyMetrics:
         self.age = age
         self.sex = sex
         self.impedance = impedance
-        self.scales = bodyScales(age, height, sex, weight)
 
         # Check for potential out of boundaries
         if self.height > 220:
-            print("Height is too high (limit: >220cm) or scale is sleeping")
-            sys.stderr.write("Height is over 220cm\n")
-            exit()
+            raise MeasurementError(
+                "Height is too high (limit: >220cm) or scale is sleeping"
+            )
         elif weight < 10 or weight > 200:
-            print("Weight is either too low or too high (limits: <10kg and >200kg)")
-            sys.stderr.write("Weight is below 10kg or above 200kg\n")
-            exit()
+            raise MeasurementError(
+                "Weight is either too low or too high (limits: <10kg and >200kg)"
+            )
         elif age > 99:
-            print("Age is too high (limit >99 years)")
-            sys.stderr.write("Age is above 99 years\n")
-            exit()
+            raise MeasurementError("Age is too high (limit >99 years)")
         elif impedance > 3000:
-            print("Impedance is above 3000 Ohm")
-            sys.stderr.write("Impedance is above 3000 Ohm\n")
-            exit()
+            raise MeasurementError("Impedance is above 3000 Ohm")
+
+        self.scales = bodyScales(age, height, sex, weight)
 
     # Set the value to a boundary if it overflows
     def checkValueOverflow(self, value, minimum, maximum):

@@ -13,6 +13,11 @@ paho-mqtt = "1.5.0"
 [tool.poetry.group.dev.dependencies]
 black = "24.4.2"
 flake8 = "7.0.0"
+pytest = "^8.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 [build-system]
 requires = ["poetry-core"]

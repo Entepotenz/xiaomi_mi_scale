@@ -2,531 +2,316 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import binascii
-import functools
 import json
 import logging
 import os
-import subprocess
 import sys
 from collections import namedtuple
-from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional
 
 import paho.mqtt.publish as publish
 from bleak import BleakScanner
 
-import Xiaomi_Scale_Body_Metrics
+from scale_processing import (
+    build_metrics_message,
+    match_user,
+    parse_v1_service_data,
+    parse_v2_service_data,
+    should_ignore_measurement,
+)
 
 DEFAULT_DEBUG_LEVEL = "INFO"
 VERSION = "0.3.5"
 
 
-# User Config
-class USER:
-    def __init__(self, name, gt, lt, sex, height, dob):
-        self.NAME, self.GT, self.LT, self.SEX, self.HEIGHT, self.DOB
+def custom_user_decoder(user_dict):
+    return namedtuple("USER", user_dict.keys())(*user_dict.values())
 
 
-def customUserDecoder(userDict):
-    return namedtuple("USER", userDict.keys())(*userDict.values())
+@dataclass
+class Config:
+    miscale_mac: str = ""
+    mqtt_host: str = ""
+    mqtt_port: int = 1883
+    mqtt_username: str = "username"
+    mqtt_password: Optional[str] = None
+    mqtt_prefix: str = "miscale"
+    mqtt_retain: bool = True
+    mqtt_tls: Optional[dict] = None
+    mqtt_discovery: bool = True
+    mqtt_discovery_prefix: str = "homeassistant"
+    hci_dev: str = "hci0"
+    bluepy_passive_scan: bool = False
+    debug_level: str = DEFAULT_DEBUG_LEVEL
+    users: list = field(default_factory=list)
 
 
-def MQTT_discovery():
-    """Published MQTT Discovery information if enabled in options.json"""
-    for MQTTUser in USERS:
-        message = '{"name": "' + MQTTUser.NAME + ' Weight",'
-        message += '"state_topic": "' + MQTT_PREFIX + "/" + MQTTUser.NAME + '/weight",'
-        message += '"value_template": "{{ value_json.weight }}",'
-        message += (
-            '"json_attributes_topic": "'
-            + MQTT_PREFIX
-            + "/"
-            + MQTTUser.NAME
-            + '/weight",'
-        )
-        message += '"icon": "mdi:scale-bathroom",'
-        message += '"state_class": "measurement"}'
-        publish.single(
-            MQTT_DISCOVERY_PREFIX
-            + "/sensor/"
-            + MQTT_PREFIX
-            + "/"
-            + MQTTUser.NAME
-            + "/config",
-            message,
-            retain=True,
-            hostname=MQTT_HOST,
-            port=MQTT_PORT,
-            auth={"username": MQTT_USERNAME, "password": MQTT_PASSWORD},
-            tls=MQTT_TLS,
-        )
-    logging.info(f"MQTT Discovery Setup Completed...")
+def load_config(config_path="/data/options.json"):
+    """Load configuration from options.json and return a Config object."""
+    config = Config()
 
-
-def check_weight(user, weight):
-    return weight > user.GT and weight < user.LT
-
-
-def GetAge(d1):
-    d1 = datetime.strptime(d1, "%Y-%m-%d")
-    d2 = datetime.strptime(datetime.today().strftime("%Y-%m-%d"), "%Y-%m-%d")
-    return abs((d2 - d1).days) / 365
-
-
-def MQTT_publish(weight, unit, mitdatetime, hasImpedance, miimpedance):
-    """Publishes weight data for the selected user"""
-    if unit == "lbs":
-        calcweight = round(weight * 0.4536, 2)
-    if unit == "jin":
-        calcweight = round(weight * 0.5, 2)
-    if unit == "kg":
-        calcweight = weight
-    matcheduser = None
-    for user in USERS:
-        if check_weight(user, weight):
-            matcheduser = user
-            break
-    if matcheduser is None:
-        return
-    height = matcheduser.HEIGHT
-    age = GetAge(matcheduser.DOB)
-    sex = matcheduser.SEX.lower()
-    name = matcheduser.NAME
-
-    lib = Xiaomi_Scale_Body_Metrics.bodyMetrics(calcweight, height, age, sex, 0)
-    message = "{"
-    message += '"weight":' + "{:.2f}".format(weight)
-    message += ',"weight_unit":"' + str(unit) + '"'
-    message += ',"bmi":' + "{:.2f}".format(lib.getBMI())
-    message += ',"basal_metabolism":' + "{:.2f}".format(lib.getBMR())
-    message += ',"visceral_fat":' + "{:.2f}".format(lib.getVisceralFat())
-
-    if hasImpedance:
-        lib = Xiaomi_Scale_Body_Metrics.bodyMetrics(
-            calcweight, height, age, sex, int(miimpedance)
-        )
-        bodyscale = [
-            "Obese",
-            "Overweight",
-            "Thick-set",
-            "Lack-exercise",
-            "Balanced",
-            "Balanced-muscular",
-            "Skinny",
-            "Balanced-skinny",
-            "Skinny-muscular",
-        ]
-        message += ',"lean_body_mass":' + "{:.2f}".format(lib.getLBMCoefficient())
-        message += ',"body_fat":' + "{:.2f}".format(lib.getFatPercentage())
-        message += ',"water":' + "{:.2f}".format(lib.getWaterPercentage())
-        message += ',"bone_mass":' + "{:.2f}".format(lib.getBoneMass())
-        message += ',"muscle_mass":' + "{:.2f}".format(lib.getMuscleMass())
-        message += ',"protein":' + "{:.2f}".format(lib.getProteinPercentage())
-        message += ',"body_type":"' + str(bodyscale[lib.getBodyType()]) + '"'
-        message += ',"metabolic_age":' + "{:.0f}".format(lib.getMetabolicAge())
-        message += ',"impedance":' + "{:.0f}".format(int(miimpedance))
-
-    message += ',"timestamp":"' + mitdatetime + '"'
-    message += "}"
-    try:
-        logging.info(
-            f"Publishing data to topic {MQTT_PREFIX + '/' + name + '/weight'}: {message}"
-        )
-        publish.single(
-            MQTT_PREFIX + "/" + name + "/weight",
-            message,
-            retain=MQTT_RETAIN,
-            hostname=MQTT_HOST,
-            port=MQTT_PORT,
-            auth={"username": MQTT_USERNAME, "password": MQTT_PASSWORD},
-            tls=MQTT_TLS,
-        )
-        logging.info(f"Data Published ...")
-    except Exception as error:
-        logging.error(f"Could not publish to MQTT: {error}")
-        raise
-
-
-def should_ignore_measurement_because_to_close_to_previous_measurement(
-    current_measurement: dict,
-    previous_measurement: dict,
-    max_timedelta: timedelta = timedelta(hours=1),
-) -> bool:
-    if not previous_measurement:
-        return False
-
-    is_unit_equals = current_measurement["unit"] == previous_measurement["unit"]
-    is_timedelta_exceeded = (
-        previous_measurement["timestamp"] - current_measurement["timestamp"]
-    ) >= max_timedelta
-
-    is_measured_data_delta_significant = False
-    if "impedance" in current_measurement.keys():
-        is_measured_data_delta_significant = (
-            round(current_measurement["weight"], 2)
-            + int(current_measurement["impedance"])
-        ) != (
-            round(previous_measurement["weight"], 2)
-            + int(previous_measurement["impedance"])
-        )
-    else:
-        is_measured_data_delta_significant = round(
-            current_measurement["weight"], 2
-        ) != round(previous_measurement["weight"], 2)
-
-    if not is_unit_equals:
-        return False
-    elif is_timedelta_exceeded:
-        return False
-    elif is_measured_data_delta_significant:
-        return False
-    else:
-        return True
-
-
-os.system("clear")
-
-# Configuration...
-# Trying To Load Config From options.json (HA Add-On)
-try:
-    with open("/data/options.json") as json_file:
+    with open(config_path) as json_file:
         data = json.load(json_file)["options"]
-        try:
-            DEBUG_LEVEL = data["DEBUG_LEVEL"]
-            if DEBUG_LEVEL not in (
-                "CRITICAL",
-                "ERROR",
-                "WARNING",
-                "INFO",
-                "DEBUG",
-                "NOTSET",
-            ):
-                DEBUG_LEVEL = DEFAULT_DEBUG_LEVEL
-                logging.basicConfig(
-                    format="%(asctime)s - (%(levelname)s) %(message)s",
-                    level=DEBUG_LEVEL,
-                    datefmt="%Y-%m-%d %H:%M:%S",
-                )
-                logging.info(f"-------------------------------------")
-                logging.info(f"Starting Xiaomi mi Scale v{VERSION}...")
-                logging.info(f"Loading Config From Options.json...")
-                logging.warning(
-                    f"Invalid logging level provided, defaulting to {DEBUG_LEVEL}..."
-                )
-            else:
-                logging.basicConfig(
-                    format="%(asctime)s - (%(levelname)s) %(message)s",
-                    level=DEBUG_LEVEL,
-                    datefmt="%Y-%m-%d %H:%M:%S",
-                )
-                logging.info(f"-------------------------------------")
-                logging.info(f"Starting Xiaomi mi Scale v{VERSION}...")
-                logging.info(f"Loading Config From Options.json...")
-                logging.info(f"Logging Level Set to {DEBUG_LEVEL}...")
-            # Prevent bleak log flooding
-            bleak_logger = logging.getLogger("bleak")
-            bleak_logger.setLevel(logging.INFO)
-        except:
-            DEBUG_LEVEL = DEFAULT_DEBUG_LEVEL
-            logging.basicConfig(
-                format="%(asctime)s - (%(levelname)s) %(message)s",
-                level=DEBUG_LEVEL,
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-            logging.info(f"-------------------------------------")
-            logging.info(f"Starting Xiaomi mi Scale v{VERSION}...")
-            logging.info(f"Loading Config From Options.json...")
-            logging.info(f"No Logging Level Provided, Defaulting to  {DEBUG_LEVEL}...")
-            # Prevent bleak log flooding
-            bleak_logger = logging.getLogger("bleak")
-            bleak_logger.setLevel(logging.INFO)
-            pass
-        try:
-            MISCALE_MAC = data["MISCALE_MAC"]
-            logging.debug(f"MISCALE_MAC read from config: {MISCALE_MAC}")
 
-        except:
-            logging.error(f"MAC Address not provided...")
+    # Debug level
+    debug_level = data.get("DEBUG_LEVEL", DEFAULT_DEBUG_LEVEL)
+    if debug_level not in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"):
+        logging.warning(
+            f"Invalid logging level provided, defaulting to {DEFAULT_DEBUG_LEVEL}..."
+        )
+        debug_level = DEFAULT_DEBUG_LEVEL
+    config.debug_level = debug_level
+
+    # Required fields
+    if "MISCALE_MAC" not in data:
+        raise ValueError("MAC Address not provided in config")
+    config.miscale_mac = data["MISCALE_MAC"]
+
+    if "MQTT_HOST" not in data:
+        raise ValueError("MQTT Host not provided in config")
+    config.mqtt_host = data["MQTT_HOST"]
+
+    # Optional MQTT fields
+    config.mqtt_username = data.get("MQTT_USERNAME", "username")
+    config.mqtt_password = data.get("MQTT_PASSWORD", None)
+    config.mqtt_prefix = data.get("MQTT_PREFIX", "miscale")
+    config.mqtt_retain = data.get("MQTT_RETAIN", True)
+    config.mqtt_discovery = data.get("MQTT_DISCOVERY", True)
+    config.mqtt_discovery_prefix = data.get("MQTT_DISCOVERY_PREFIX", "homeassistant")
+    config.hci_dev = data.get("HCI_DEV", "hci0").lower()
+    config.bluepy_passive_scan = data.get("BLUEPY_PASSIVE_SCAN", False)
+
+    # Port
+    mqtt_port = data.get("MQTT_PORT", 1883)
+    if not isinstance(mqtt_port, int):
+        mqtt_port = int(mqtt_port)
+    config.mqtt_port = mqtt_port
+
+    # TLS
+    mqtt_tls_cacerts = data.get("MQTT_TLS_CACERTS", None)
+    mqtt_tls_insecure = data.get("MQTT_TLS_INSECURE", None)
+    if mqtt_tls_cacerts in [None, "", "Path to CA Cert File"]:
+        config.mqtt_tls = None
+    else:
+        config.mqtt_tls = {"ca_certs": mqtt_tls_cacerts, "insecure": mqtt_tls_insecure}
+
+    # Users
+    config.users = []
+    for user_data in data["USERS"]:
+        user = json.loads(json.dumps(user_data), object_hook=custom_user_decoder)
+        if user.GT > user.LT:
+            raise ValueError(f"GT can not be larger than LT - user {user.NAME}")
+        config.users.append(user)
+
+    # Deprecated options (log warnings)
+    if "MISCALE_VERSION" in data:
+        logging.info(
+            "MISCALE_VERSION option is deprecated and can safely be removed from config..."
+        )
+    if "TIME_INTERVAL" in data:
+        logging.info(
+            "TIME_INTERVAL option is deprecated and can safely be removed from config..."
+        )
+
+    return config
+
+
+class MQTTPublisher:
+    """Handles all MQTT publishing operations."""
+
+    def __init__(self, config: Config):
+        self.config = config
+
+    def _get_auth(self):
+        return {
+            "username": self.config.mqtt_username,
+            "password": self.config.mqtt_password,
+        }
+
+    def publish_discovery(self):
+        """Publish MQTT Discovery information for Home Assistant."""
+        for user in self.config.users:
+            message = json.dumps(
+                {
+                    "name": f"{user.NAME} Weight",
+                    "state_topic": f"{self.config.mqtt_prefix}/{user.NAME}/weight",
+                    "value_template": "{{ value_json.weight }}",
+                    "json_attributes_topic": f"{self.config.mqtt_prefix}/{user.NAME}/weight",
+                    "icon": "mdi:scale-bathroom",
+                    "state_class": "measurement",
+                }
+            )
+            publish.single(
+                f"{self.config.mqtt_discovery_prefix}/sensor/{self.config.mqtt_prefix}/{user.NAME}/config",
+                message,
+                retain=True,
+                hostname=self.config.mqtt_host,
+                port=self.config.mqtt_port,
+                auth=self._get_auth(),
+                tls=self.config.mqtt_tls,
+            )
+        logging.info("MQTT Discovery Setup Completed...")
+
+    def publish_weight(self, weight, unit, mitdatetime, has_impedance, impedance):
+        """Publish weight data for the matched user."""
+        matched_user = match_user(self.config.users, weight)
+        if matched_user is None:
+            logging.debug(f"No user matched for weight {weight}")
+            return
+
+        message = build_metrics_message(
+            weight, unit, mitdatetime, has_impedance, impedance, matched_user
+        )
+        message_json = json.dumps(message)
+        topic = f"{self.config.mqtt_prefix}/{matched_user.NAME}/weight"
+
+        try:
+            logging.info(f"Publishing data to topic {topic}: {message_json}")
+            publish.single(
+                topic,
+                message_json,
+                retain=self.config.mqtt_retain,
+                hostname=self.config.mqtt_host,
+                port=self.config.mqtt_port,
+                auth=self._get_auth(),
+                tls=self.config.mqtt_tls,
+            )
+            logging.info("Data Published ...")
+        except Exception as error:
+            logging.error(f"Could not publish to MQTT: {error}")
             raise
-        try:
-            MISCALE_VERSION = data["MISCALE_VERSION"]
-            logging.info(
-                f"MISCALE_VERSION option is deprecated and can safely be removed from config..."
-            )
-        except:
-            pass
-        try:
-            MQTT_USERNAME = data["MQTT_USERNAME"]
-            logging.debug(f"MQTT_USERNAME read from config: {MQTT_USERNAME}")
-        except:
-            MQTT_USERNAME = "username"
-            logging.debug(f"MQTT_USERNAME defaulted to: {MQTT_USERNAME}")
-            pass
-        try:
-            MQTT_PASSWORD = data["MQTT_PASSWORD"]
-            logging.debug(f"MQTT_PASSWORD read from config: ***")
-        except:
-            MQTT_PASSWORD = None
-            logging.debug(f"MQTT_PASSWORD defaulted to: {MQTT_PASSWORD}")
-            pass
-        try:
-            MQTT_HOST = data["MQTT_HOST"]
-            logging.debug(f"MQTT_HOST read from config: {MQTT_HOST}")
-        except:
-            logging.error(f"MQTT Host not provided...")
-            raise
-        try:
-            MQTT_RETAIN = data["MQTT_RETAIN"]
-            logging.debug(f"MQTT_RETAIN read from config: {MQTT_RETAIN}")
-        except:
-            MQTT_RETAIN = True
-            logging.debug(f"MQTT_RETAIN defaulted to: {MQTT_RETAIN}")
-            pass
-        try:
-            MQTT_PORT = data["MQTT_PORT"]
-            logging.debug(f"MQTT_PORT read from config: {MQTT_PORT}")
-            if type(MQTT_PORT) != int:
-                logging.warning(f"Converting MQTT_PORT to integer...")
-                MQTT_PORT = int(MQTT_PORT)
-        except:
-            MQTT_PORT = 1883
-            logging.debug(f"MQTT_PORT defaulted to: {MQTT_PORT}")
-            pass
-        try:
-            MQTT_TLS_CACERTS = data["MQTT_TLS_CACERTS"]
-            logging.debug(f"MQTT_TLS_CACERTS read from config: {MQTT_TLS_CACERTS}")
-        except:
-            MQTT_TLS_CACERTS = None
-            logging.debug(f"MQTT_TLS_CACERTS defaulted to: {MQTT_TLS_CACERTS}")
-            pass
-        try:
-            MQTT_TLS_INSECURE = data["MQTT_TLS_INSECURE"]
-            logging.debug(f"MQTT_TLS_INSECURE read from config: {MQTT_TLS_INSECURE}")
-        except:
-            MQTT_TLS_INSECURE = None
-            logging.debug(f"MQTT_TLS_INSECURE defaulted to: {MQTT_TLS_INSECURE}")
-            pass
-        try:
-            MQTT_PREFIX = data["MQTT_PREFIX"]
-            logging.debug(f"MQTT_PREFIX read from config: {MQTT_PREFIX}")
-        except:
-            MQTT_PREFIX = "miscale"
-            logging.debug(f"MQTT_PREFIX defaulted to: {MQTT_PREFIX}")
-            pass
-        try:
-            TIME_INTERVAL = data["TIME_INTERVAL"]
-            logging.info(
-                f"TIME_INTERVAL option is deprecated and can safely be removed from config..."
-            )
-        except:
-            pass
-        try:
-            MQTT_DISCOVERY = data["MQTT_DISCOVERY"]
-            logging.debug(f"MQTT_DISCOVERY read from config: {MQTT_DISCOVERY}")
-        except:
-            MQTT_DISCOVERY = True
-            logging.debug(f"MQTT_DISCOVERY defaulted to: {MQTT_DISCOVERY}")
-            pass
-        try:
-            MQTT_DISCOVERY_PREFIX = data["MQTT_DISCOVERY_PREFIX"]
-            logging.debug(
-                f"MQTT_DISCOVERY_PREFIX read from config: {MQTT_DISCOVERY_PREFIX}"
-            )
-        except:
-            if MQTT_DISCOVERY:
-                logging.warning(
-                    f"MQTT Discovery enabled but no MQTT Prefix provided, defaulting to 'homeassistant'..."
-                )
-                MQTT_DISCOVERY_PREFIX = "homeassistant"
-            pass
-        try:
-            HCI_DEV = data["HCI_DEV"].lower()
-            logging.debug(f"HCI_DEV read from config: {HCI_DEV}")
-        except:
-            HCI_DEV = "hci0"
-            logging.debug(f"HCI_DEV defaulted to: {HCI_DEV}")
-            pass
-        try:
-            BLUEPY_PASSIVE_SCAN = data["BLUEPY_PASSIVE_SCAN"]
-            logging.debug(
-                f"BLUEPY_PASSIVE_SCAN read from config: {BLUEPY_PASSIVE_SCAN}"
-            )
-        except:
-            BLUEPY_PASSIVE_SCAN = False
-            logging.debug(f"BLUEPY_PASSIVE_SCAN defaulted to: {BLUEPY_PASSIVE_SCAN}")
-            pass
 
-        if MQTT_TLS_CACERTS in [None, "", "Path to CA Cert File"]:
-            MQTT_TLS = None
-        else:
-            MQTT_TLS = {"ca_certs": MQTT_TLS_CACERTS, "insecure": MQTT_TLS_INSECURE}
 
-        USERS = []
-        for user in data["USERS"]:
-            try:
-                user = json.dumps(user)
-                user = json.loads(user, object_hook=customUserDecoder)
-                if user.GT > user.LT:
-                    raise ValueError("GT can not be larger than LT - user {user.Name}")
-                USERS.append(user)
-            except:
-                logging.error(f"{sys.exc_info()[1]}")
-                raise
-        OLD_MEASURE = None
-        logging.info(f"Config Loaded...")
-
-# Failed to open options.json
-except FileNotFoundError as error:
-    DEBUG_LEVEL = DEFAULT_DEBUG_LEVEL
+def setup_logging(debug_level):
+    """Configure logging for the application."""
     logging.basicConfig(
         format="%(asctime)s - (%(levelname)s) %(message)s",
-        level=DEBUG_LEVEL,
+        level=debug_level,
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    logging.info(f"-------------------------------------")
-    logging.info(f"Starting Xiaomi mi Scale v{VERSION}...")
-    logging.info(f"Loading Config From Options.json...")
-    logging.error(f"options.json file missing... {error}")
     # Prevent bleak log flooding
     bleak_logger = logging.getLogger("bleak")
     bleak_logger.setLevel(logging.INFO)
-    raise
 
 
-async def main(MISCALE_MAC):
+async def main(config: Config, publisher: MQTTPublisher):
     stop_event = asyncio.Event()
-
-    # TODO: add something that calls stop_event.set()
+    old_measure = None
 
     def callback(device, advertising_data):
-        global OLD_MEASURE
-        if device.address.lower() == MISCALE_MAC:
-            logging.debug(f"miscale found, with advertising_data: {advertising_data}")
-            try:
-                ### Xiaomi V2 Scale ###
-                data = binascii.b2a_hex(
-                    advertising_data.service_data[
-                        "0000181b-0000-1000-8000-00805f9b34fb"
-                    ]
-                ).decode("ascii")
-                logging.debug(
-                    f"miscale v2 found (service data: 0000181b-0000-1000-8000-00805f9b34fb)"
-                )
-                data = (
-                    "1b18" + data
-                )  # Remnant from previous code. Needs to be cleaned in the future
-                data2 = bytes.fromhex(data[4:])
-                ctrlByte1 = data2[1]
-                isStabilized = ctrlByte1 & (1 << 5)
-                hasImpedance = ctrlByte1 & (1 << 1)
-                measunit = data[4:6]
-                measured = int((data[28:30] + data[26:28]), 16) * 0.01
-                unit = ""
-                if measunit == "03":
-                    unit = "lbs"
-                if measunit == "02":
-                    unit = "kg"
-                    measured = measured / 2
-                miimpedance = str(int((data[24:26] + data[22:24]), 16))
-                if unit and isStabilized:
-                    current_measure = {
-                        "unit": unit,
-                        "timestamp": datetime.now(),
-                        "impedance": miimpedance,
-                        "weight": measured,
-                    }
-                    if should_ignore_measurement_because_to_close_to_previous_measurement(
-                        current_measure, OLD_MEASURE
-                    ):
-                        logging.debug(
-                            "skipping sending value because it is too close to old measure"
-                        )
-                    else:
-                        MQTT_publish(
-                            round(measured, 2),
-                            unit,
-                            str(datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")),
-                            hasImpedance,
-                            miimpedance,
-                        )
-                        OLD_MEASURE = current_measure
+        nonlocal old_measure
+        if device.address.lower() != config.miscale_mac:
+            return
 
-            except Exception as exception:
-                logging.debug(exception)
-            try:
-                ### Xiaomi V1 Scale ###
-                data = binascii.b2a_hex(
-                    advertising_data.service_data[
-                        "0000181d-0000-1000-8000-00805f9b34fb"
-                    ]
-                ).decode("ascii")
-                logging.debug(
-                    f"miscale v1 found (service data: 0000181d-0000-1000-8000-00805f9b34fb)"
-                )
-                data = (
-                    "1d18" + data
-                )  # Remnant from previous code. Needs to be cleaned in the future
-                measunit = data[4:6]
-                measured = int((data[8:10] + data[6:8]), 16) * 0.01
-                unit = ""
-                if measunit.startswith(("03", "a3")):
-                    unit = "lbs"
-                if measunit.startswith(("12", "b2")):
-                    unit = "jin"
-                if measunit.startswith(("22", "a2", "02")):
-                    unit = "kg"
-                    measured = measured / 2
-                if unit:
-                    logging.debug(f"continue: unit detected {unit}")
-                    current_measure = {
-                        "unit": unit,
-                        "timestamp": datetime.now(),
-                        "weight": measured,
-                    }
+        logging.debug(f"miscale found, with advertising_data: {advertising_data}")
+
+        # Try Xiaomi V2 Scale
+        try:
+            raw_hex = binascii.b2a_hex(
+                advertising_data.service_data["0000181b-0000-1000-8000-00805f9b34fb"]
+            ).decode("ascii")
+            logging.debug(
+                "miscale v2 found (service data: 0000181b-0000-1000-8000-00805f9b34fb)"
+            )
+            parsed = parse_v2_service_data(raw_hex)
+            if parsed:
+                current_measure = {
+                    "unit": parsed["unit"],
+                    "timestamp": datetime.now(),
+                    "impedance": parsed["impedance"],
+                    "weight": parsed["weight"],
+                }
+                if should_ignore_measurement(current_measure, old_measure):
                     logging.debug(
-                        f"current_measure: unit: {current_measure['unit']}, timestamp: {current_measure['timestamp'].isoformat()}, weight: {current_measure['weight']}"
+                        "skipping sending value because it is too close to old measure"
                     )
-                    if OLD_MEASURE:
-                        logging.debug(
-                            f"OLD_MEASURE: unit: {OLD_MEASURE['unit']}, timestamp: {OLD_MEASURE['timestamp'].isoformat()}, weight: {OLD_MEASURE['weight']}"
-                        )
-                    else:
-                        logging.debug("OLD_MEASURE is None")
-                    if should_ignore_measurement_because_to_close_to_previous_measurement(
-                        current_measure, OLD_MEASURE
-                    ):
-                        logging.debug(
-                            "skipping sending value because it is too close to old measure"
-                        )
-                    else:
-                        MQTT_publish(
-                            round(measured, 2),
-                            unit,
-                            str(datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")),
-                            "",
-                            "",
-                        )
-                        OLD_MEASURE = current_measure
                 else:
-                    logging.debug(
-                        f"skipping: no unit detected -> measunit:={measunit}, measured:={measured}"
+                    publisher.publish_weight(
+                        round(parsed["weight"], 2),
+                        parsed["unit"],
+                        datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+                        parsed["has_impedance"],
+                        parsed["impedance"],
                     )
-            except Exception as exception:
-                logging.debug(exception)
+                    old_measure = current_measure
+        except Exception as exception:
+            logging.debug(exception)
 
-    async with BleakScanner(callback, device=f"{HCI_DEV}") as scanner:
-        ...
-        # Important! Wait for an event to trigger stop, otherwise scanner
-        # will stop immediately.
+        # Try Xiaomi V1 Scale
+        try:
+            raw_hex = binascii.b2a_hex(
+                advertising_data.service_data["0000181d-0000-1000-8000-00805f9b34fb"]
+            ).decode("ascii")
+            logging.debug(
+                "miscale v1 found (service data: 0000181d-0000-1000-8000-00805f9b34fb)"
+            )
+            parsed = parse_v1_service_data(raw_hex)
+            if parsed:
+                logging.debug(f"continue: unit detected {parsed['unit']}")
+                current_measure = {
+                    "unit": parsed["unit"],
+                    "timestamp": datetime.now(),
+                    "weight": parsed["weight"],
+                }
+                logging.debug(
+                    f"current_measure: unit: {current_measure['unit']}, "
+                    f"timestamp: {current_measure['timestamp'].isoformat()}, "
+                    f"weight: {current_measure['weight']}"
+                )
+                if old_measure:
+                    logging.debug(
+                        f"OLD_MEASURE: unit: {old_measure['unit']}, "
+                        f"timestamp: {old_measure['timestamp'].isoformat()}, "
+                        f"weight: {old_measure['weight']}"
+                    )
+                else:
+                    logging.debug("OLD_MEASURE is None")
+                if should_ignore_measurement(current_measure, old_measure):
+                    logging.debug(
+                        "skipping sending value because it is too close to old measure"
+                    )
+                else:
+                    publisher.publish_weight(
+                        round(parsed["weight"], 2),
+                        parsed["unit"],
+                        datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+                        False,
+                        "0",
+                    )
+                    old_measure = current_measure
+            else:
+                logging.debug("skipping: no unit detected")
+        except Exception as exception:
+            logging.debug(exception)
+
+    async with BleakScanner(callback, device=config.hci_dev):
         await stop_event.wait()
 
 
 if __name__ == "__main__":
-    if MQTT_DISCOVERY:
-        MQTT_discovery()
-    logging.info(f"-------------------------------------")
-    logging.info(f"Initialization Completed, Waiting for Scale...")
+    os.system("clear")
     try:
-        asyncio.run(main(MISCALE_MAC.lower()))
+        logging.info("-------------------------------------")
+        logging.info(f"Starting Xiaomi mi Scale v{VERSION}...")
+        config = load_config()
+        setup_logging(config.debug_level)
+        logging.info(f"Logging Level Set to {config.debug_level}...")
+        logging.info("Config Loaded...")
+    except FileNotFoundError as error:
+        setup_logging(DEFAULT_DEBUG_LEVEL)
+        logging.error(f"options.json file missing... {error}")
+        raise
+
+    publisher = MQTTPublisher(config)
+
+    if config.mqtt_discovery:
+        publisher.publish_discovery()
+
+    logging.info("-------------------------------------")
+    logging.info("Initialization Completed, Waiting for Scale...")
+    try:
+        asyncio.run(main(config, publisher))
     except Exception as error:
         logging.error(f"Unable to connect to Bluetooth: {error}")
-        pass
