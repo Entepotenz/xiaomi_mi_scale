@@ -292,15 +292,30 @@ async def run_with_retries(config: Config, publisher: MQTTPublisher):
             await main(config, publisher)
             return
         except Exception as error:
-            logging.error(f"Unable to connect to Bluetooth: {error}")
-            if attempt < max_retries:
+            error_text = str(error)
+            is_not_ready = "org.bluez.Error.NotReady" in error_text
+
+            logging.error(
+                "Unable to connect to Bluetooth (%s): %s",
+                type(error).__name__,
+                error_text,
+            )
+            # Include full traceback when DEBUG is enabled for deeper diagnostics.
+            logging.debug("Bluetooth connection traceback:", exc_info=True)
+
+            if is_not_ready and attempt < max_retries:
                 logging.info(
-                    f"Retrying in 10 seconds... (attempt {attempt + 1}/{max_retries})"
+                    f"BlueZ is not ready yet, retrying in 10 seconds... "
+                    f"(attempt {attempt + 1}/{max_retries})"
                 )
                 await asyncio.sleep(10)
+                continue
+
+            if is_not_ready:
+                logging.error("Max retries reached while waiting for BlueZ readiness.")
             else:
-                logging.error("Max retries reached, exiting.")
-                raise
+                logging.error("Bluetooth error is not retryable; exiting.")
+            raise
 
 
 if __name__ == "__main__":
