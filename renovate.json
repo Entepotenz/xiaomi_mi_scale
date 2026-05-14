@@ -5,5 +5,18 @@
     "github>Entepotenz/renovate_custom_presets//group-linters.json",
     "github>Entepotenz/renovate_custom_presets//group-github-actions.json",
     "github>Entepotenz/renovate_custom_presets//group-python-testing-and-linting-packages.json"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^Dockerfile$"
+      ],
+      "matchStrings": [
+        "ENV POETRY_VERSION=(?<currentValue>[^\\s\\\\]+)"
+      ],
+      "depNameTemplate": "poetry",
+      "datasourceTemplate": "pypi"
+    }
   ]
 }

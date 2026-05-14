@@ -2,11 +2,13 @@ FROM docker.io/library/python:3.14.3-slim@sha256:5e59aae31ff0e87511226be8e2b94d7
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir poetry==1.4.2
-
-ENV POETRY_NO_INTERACTION=1 \
+ENV POETRY_VERSION=1.4.2 \
+    POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
     POETRY_VIRTUALENVS_CREATE=1
+
+RUN pip install --no-cache-dir \
+    poetry==${POETRY_VERSION}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
