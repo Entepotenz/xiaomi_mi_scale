@@ -1,0 +1,56 @@
+---
+name: 📋 Lint and Format Check
+# yamllint disable-line rule:truthy
+on:
+  workflow_dispatch:
+  merge_group:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    if: (!startsWith(github.event.pull_request.head.ref, 'dependabot/') && !startsWith(github.event.pull_request.head.ref, 'renovate/') && github.event.head_commit.author.username != 'renovate-bot')
+    steps:
+      - name: 🔄 Check Out Repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - name: 📦 Install Poetry
+        run: pipx install poetry
+      - name: 🔍 Extract Python version from pyproject.toml
+        id: python_version
+        run: |
+          PYTHON_VERSION=$(grep -E '^python\s*=' pyproject.toml | sed -E 's/.*"\^?([0-9]+\.[0-9]+).*/\1/')
+          echo "Detected Python version: $PYTHON_VERSION"
+          echo "python-version=$PYTHON_VERSION" >> "$GITHUB_OUTPUT"
+      - name: 🐍 Set Up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: ${{ steps.python_version.outputs.python-version }}
+          cache: "poetry"
+      - name: 📥 Install Dependencies
+        run: poetry install --no-interaction
+      - name: ✍️ Run Black
+        id: black
+        run: |
+          poetry run black --check .
+      - name: 🐞 Run Ruff
+        id: ruff
+        run: |
+          poetry run ruff check .
+      - name: ⚙️ Run Flake8
+        id: flake8
+        run: |
+          poetry run flake8 .
+      - name: 🔍 Run MyPy
+        id: mypy
+        run: |
+          poetry run mypy . --check-untyped-defs --ignore-missing-imports
