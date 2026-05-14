@@ -1,3 +1,6 @@
+from typing import cast
+
+
 class bodyScales:
     def __init__(self, age, height, sex, weight, scaleType="xiaomi"):
         self.age = age
@@ -171,7 +174,8 @@ class bodyScales:
             ]
 
         for scale in scales:
-            if self.height >= scale["min"][self.sex]:
+            min_heights = cast(dict[str, int], scale["min"])
+            if self.height >= min_heights[self.sex]:
                 return scale[self.sex]
 
     # Get water percentage scale
@@ -229,9 +233,10 @@ class bodyScales:
 
             for scale in scales:
                 if self.weight >= scale[self.sex]["min"]:
+                    optimal = cast(float, scale[self.sex]["optimal"])
                     return [
-                        scale[self.sex]["optimal"] - 1,
-                        scale[self.sex]["optimal"] + 1,
+                        optimal - 1,
+                        optimal + 1,
                     ]
 
     # Get BMR scale

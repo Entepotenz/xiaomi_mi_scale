@@ -8,7 +8,7 @@ import os
 from collections import namedtuple
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 import paho.mqtt.publish as publish
 from bleak import BleakScanner
@@ -24,6 +24,9 @@ from scale_processing import (
 DEFAULT_DEBUG_LEVEL = "INFO"
 VERSION = "0.3.5"
 
+if TYPE_CHECKING:
+    from paho.mqtt.publish import TLSParameter
+
 
 def custom_user_decoder(user_dict):
     return namedtuple("USER", user_dict.keys())(*user_dict.values())
@@ -38,7 +41,7 @@ class Config:
     mqtt_password: Optional[str] = None
     mqtt_prefix: str = "miscale"
     mqtt_retain: bool = True
-    mqtt_tls: Optional[dict] = None
+    mqtt_tls: Optional["TLSParameter"] = None
     mqtt_discovery: bool = True
     mqtt_discovery_prefix: str = "homeassistant"
     hci_dev: str = "hci0"
@@ -94,7 +97,10 @@ def load_config(config_path="/data/options.json"):
     if mqtt_tls_cacerts in [None, "", "Path to CA Cert File"]:
         config.mqtt_tls = None
     else:
-        config.mqtt_tls = {"ca_certs": mqtt_tls_cacerts, "insecure": mqtt_tls_insecure}
+        config.mqtt_tls = cast(
+            "TLSParameter",
+            {"ca_certs": mqtt_tls_cacerts, "insecure": mqtt_tls_insecure},
+        )
 
     # Users
     config.users = []
