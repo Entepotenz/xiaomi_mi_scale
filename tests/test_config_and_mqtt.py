@@ -1,11 +1,12 @@
 """Tests for configuration loading and MQTT publisher."""
 
 import json
-import pytest
-from unittest.mock import patch, MagicMock
 from collections import namedtuple
+from unittest.mock import MagicMock, patch
 
-from Xiaomi_Scale import Config, load_config, MQTTPublisher, custom_user_decoder
+import pytest
+
+from Xiaomi_Scale import Config, MQTTPublisher, custom_user_decoder, load_config
 
 
 @pytest.fixture
