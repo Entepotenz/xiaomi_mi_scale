@@ -1,0 +1,21 @@
+---
+name: Keep workflows alive
+
+# yamllint disable-line rule:truthy
+on:
+  schedule:
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+
+jobs:
+  keep-github-actions-alive:
+    name: Cronjob based GitHub action
+    runs-on: ubuntu-latest
+    if: (!startsWith(github.event.pull_request.head.ref, 'dependabot/') && !startsWith(github.event.pull_request.head.ref, 'renovate/') && github.event.head_commit.author.username != 'renovate-bot')
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Keep your GitHub Actions alive automatically
+        uses: Entepotenz/keep-github-actions-alive-min-dependencies@2b8591b952e0448a961600c336393cdcd4c1a9b6 # v1
