@@ -5,6 +5,7 @@ age/height/weight/sex combinations.
 """
 
 import pytest
+
 from body_scales import bodyScales
 
 

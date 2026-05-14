@@ -4,19 +4,20 @@ Tests the full pipeline from raw BLE data through user matching,
 weight conversion, metric computation, and message building.
 """
 
-import pytest
 from collections import namedtuple
 from datetime import datetime, timedelta
 
+import pytest
+
 from scale_processing import (
+    build_metrics_message,
     check_weight,
     convert_weight_to_kg,
     get_age,
     match_user,
-    build_metrics_message,
-    should_ignore_measurement,
     parse_v1_service_data,
     parse_v2_service_data,
+    should_ignore_measurement,
 )
 
 

@@ -6,7 +6,8 @@ inputs through to final metric values.
 """
 
 import pytest
-from Xiaomi_Scale_Body_Metrics import bodyMetrics, MeasurementError
+
+from Xiaomi_Scale_Body_Metrics import MeasurementError, bodyMetrics
 
 
 class TestBodyMetricsInitialization:

@@ -4,6 +4,7 @@ Tests the body score deduction logic across different body compositions.
 """
 
 import pytest
+
 from body_score import bodyScore
 from Xiaomi_Scale_Body_Metrics import bodyMetrics
 
