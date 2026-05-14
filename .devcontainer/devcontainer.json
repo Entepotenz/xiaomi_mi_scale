@@ -17,6 +17,7 @@
   "customizations": {
     "vscode": {
       "extensions": [
+        "charliermarsh.ruff",
         "EditorConfig.EditorConfig",
         "esbenp.prettier-vscode",
         "foxundermoon.shell-format",
@@ -25,14 +26,56 @@
         "ms-python.isort",
         "ms-python.python",
         "streetsidesoftware.code-spell-checker-german",
-        "streetsidesoftware.code-spell-checker"
-      ]
+        "streetsidesoftware.code-spell-checker",
+      ],
+      "git.branchProtection": [
+        "main",
+        "master"
+      ],
+      "settings": {
+        "files.insertFinalNewline": true,
+        "editor.formatOnSave": true,
+        "files.trimTrailingWhitespace": true,
+        "python.defaultInterpreterPath": "./.venv/bin/python",
+        "python.formatting.provider": "black",
+        "python.formatting.blackArgs": [
+          "--no-color"
+        ],
+        "python.linting.mypyEnabled": true,
+        "python.linting.mypyPath": "./.venv/bin/dmypy",
+        "python.linting.mypyArgs": [
+          "run",
+          "--",
+          "--ignore-missing-imports",
+          "--show-column-numbers",
+          "--no-pretty",
+          "--python-executable",
+          "./.venv/bin/python"
+        ],
+        "python.testing.pytestArgs": [
+          "tests"
+        ],
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestEnabled": true,
+        "python.testing.autoTestDiscoverOnSaveEnabled": true,
+        "python.analysis.autoImportCompletions": true,
+        "python.analysis.indexing": true,
+        "python.linting.flake8Enabled": false,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "always"
+        },
+        "ruff.path": [
+          "./.venv/bin/ruff"
+        ],
+        "rewrap.wrappingColumn": 88
+      }
     }
   },
   // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
   // "remoteUser": "root"
   "mounts": [
-    "source=/var/run/dbus/,target=/var/run/dbus/,type=bind,readonly"
+    "source=/var/run/dbus/,target=/var/run/dbus/,type=bind,readonly",
+    "source=${localWorkspaceFolderBasename}-venv,target=${containerWorkspaceFolder}/.venv,type=volume"
   ],
   "runArgs": [
     "--privileged"
