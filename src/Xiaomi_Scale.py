@@ -284,6 +284,25 @@ async def main(config: Config, publisher: MQTTPublisher):
         await stop_event.wait()
 
 
+async def run_with_retries(config: Config, publisher: MQTTPublisher):
+    """Run scanner with up to 2 retries when Bluetooth stack is not ready."""
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            await main(config, publisher)
+            return
+        except Exception as error:
+            logging.error(f"Unable to connect to Bluetooth: {error}")
+            if attempt < max_retries:
+                logging.info(
+                    f"Retrying in 10 seconds... (attempt {attempt + 1}/{max_retries})"
+                )
+                await asyncio.sleep(10)
+            else:
+                logging.error("Max retries reached, exiting.")
+                raise
+
+
 if __name__ == "__main__":
     try:
         logging.info("-------------------------------------")
@@ -304,15 +323,4 @@ if __name__ == "__main__":
 
     logging.info("-------------------------------------")
     logging.info("Initialization Completed, Waiting for Scale...")
-    for attempt in range(3):
-        try:
-            asyncio.run(main(config, publisher))
-            break
-        except Exception as error:
-            logging.error(f"Unable to connect to Bluetooth: {error}")
-            if attempt < 2:
-                logging.info(f"Retrying in 10 seconds... (attempt {attempt + 1}/2)")
-                asyncio.run(asyncio.sleep(10))
-            else:
-                logging.error("Max retries reached, exiting.")
-                raise
+    asyncio.run(run_with_retries(config, publisher))
