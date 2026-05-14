@@ -280,7 +280,10 @@ async def main(config: Config, publisher: MQTTPublisher):
         except Exception as exception:
             logging.debug(exception)
 
-    async with BleakScanner(callback, device=config.hci_dev):
+    async with BleakScanner(
+        detection_callback=callback,
+        bluez={"adapter": config.hci_dev},
+    ):
         await stop_event.wait()
 
 
