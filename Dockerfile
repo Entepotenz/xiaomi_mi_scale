@@ -19,6 +19,10 @@ FROM docker.io/library/python:3.14.3-slim@sha256:5e59aae31ff0e87511226be8e2b94d7
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    dumb-init \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV DEBUG=False \
     VIRTUAL_ENV=/app/.venv \
     PATH="/app/.venv/bin:$PATH"
@@ -26,4 +30,5 @@ ENV DEBUG=False \
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 COPY src ./
 
-ENTRYPOINT ["python3", "-u", "/app/Xiaomi_Scale.py"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["python3", "-u", "/app/Xiaomi_Scale.py"]
