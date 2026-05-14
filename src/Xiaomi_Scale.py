@@ -5,7 +5,6 @@ import binascii
 import json
 import logging
 import os
-import sys
 from collections import namedtuple
 from dataclasses import dataclass, field
 from datetime import datetime
