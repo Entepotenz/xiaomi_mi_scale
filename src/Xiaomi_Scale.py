@@ -4,7 +4,6 @@ import asyncio
 import binascii
 import json
 import logging
-import os
 from collections import namedtuple
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -296,7 +295,6 @@ async def main(config: Config, publisher: MQTTPublisher):
 
 
 if __name__ == "__main__":
-    os.system("clear")
     try:
         logging.info("-------------------------------------")
         logging.info(f"Starting Xiaomi mi Scale v{VERSION}...")
@@ -316,7 +314,15 @@ if __name__ == "__main__":
 
     logging.info("-------------------------------------")
     logging.info("Initialization Completed, Waiting for Scale...")
-    try:
-        asyncio.run(main(config, publisher))
-    except Exception as error:
-        logging.error(f"Unable to connect to Bluetooth: {error}")
+    for attempt in range(3):
+        try:
+            asyncio.run(main(config, publisher))
+            break
+        except Exception as error:
+            logging.error(f"Unable to connect to Bluetooth: {error}")
+            if attempt < 2:
+                logging.info(f"Retrying in 10 seconds... (attempt {attempt + 1}/2)")
+                asyncio.run(asyncio.sleep(10))
+            else:
+                logging.error("Max retries reached, exiting.")
+                raise
