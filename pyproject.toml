@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 bleak = "0.18.0"
 paho-mqtt = "2.1.0"
 
@@ -16,6 +16,7 @@ flake8 = "7.0.0"
 pytest = "^8.0"
 pytest-cov = "^7.1.0"
 ruff = "^0.15.12"
+mypy = "^2.1.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
