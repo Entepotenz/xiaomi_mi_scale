@@ -109,16 +109,6 @@ def load_config(config_path="/data/options.json"):
             raise ValueError(f"GT can not be larger than LT - user {user.NAME}")
         config.users.append(user)
 
-    # Deprecated options (log warnings)
-    if "MISCALE_VERSION" in data:
-        logging.info(
-            "MISCALE_VERSION option is deprecated and can safely be removed from config..."
-        )
-    if "TIME_INTERVAL" in data:
-        logging.info(
-            "TIME_INTERVAL option is deprecated and can safely be removed from config..."
-        )
-
     return config
 
 
