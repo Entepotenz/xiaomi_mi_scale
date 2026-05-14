@@ -14,10 +14,14 @@ paho-mqtt = "2.1.0"
 black = "24.4.2"
 flake8 = "7.0.0"
 pytest = "^8.0"
+pytest-cov = "^7.1.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["src"]
 
 [build-system]
 requires = ["poetry-core"]
