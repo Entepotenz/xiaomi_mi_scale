@@ -1,5 +1,10 @@
 FROM docker.io/library/python:3.14.3-slim@sha256:5e59aae31ff0e87511226be8e2b94d78c58f05216efda3b07dbbed938ec8583b AS builder
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    bluez \
+    libglib2.0-dev
+
 WORKDIR /app
 
 ENV POETRY_VERSION=2.3.4 \
@@ -9,11 +14,6 @@ ENV POETRY_VERSION=2.3.4 \
 
 RUN pip install --no-cache-dir \
     poetry==${POETRY_VERSION}
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    bluez \
-    libglib2.0-dev
 
 COPY pyproject.toml poetry.lock ./
 
